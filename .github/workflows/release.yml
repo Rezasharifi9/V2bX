@@ -28,7 +28,11 @@ on:
 
 jobs:
 
+  validate:
+    uses: ./.github/workflows/test.yml
+
   build:
+    needs: validate
     strategy:
       matrix:
         # Include amd64 on all platforms.
