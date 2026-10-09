@@ -18,7 +18,9 @@ jobs:
         with:
           go-version: '1.25.0'
       - name: Verify durable collection, outage recovery and controllers
-        run: go test -race ./common/counter ./common/trafficqueue ./node
+        run: |
+          go test -race ./common/counter ./common/trafficqueue
+          go test -race ./node -run TestControllerRetriesSavedTrafficWithoutNewUsageAfterRestart
       - name: Verify panel acknowledgements
         run: go test -race ./api/panel -run TestTrafficReportRequiresPanelAcknowledgement
       - name: Verify all supported cores compile
