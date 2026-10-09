@@ -57,6 +57,15 @@ func (c *Xray) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeInfo) e
 	return nil
 }
 
+func (x *Xray) CollectUserTraffic(tag string, persist func([]panel.UserTraffic) error) ([]panel.UserTraffic, error) {
+	x.users.mapLock.RLock()
+	defer x.users.mapLock.RUnlock()
+	if v, ok := x.dispatcher.Counter.Load(tag); ok {
+		return v.(*counter.TrafficCounter).Collect(func(key string) int { return x.users.uidMap[key] }, persist)
+	}
+	return nil, nil
+}
+
 func (x *Xray) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	trafficSlice := make([]panel.UserTraffic, 0)
 	x.users.mapLock.RLock()
