@@ -136,15 +136,6 @@ func (c *Client) ReportUserTraffic(userTraffic []UserTraffic) error {
 	if err != nil {
 		return err
 	}
-	if r.StatusCode() < 200 || r.StatusCode() >= 300 {
-		return fmt.Errorf("traffic report returned HTTP %d", r.StatusCode())
-	}
-	var acknowledgement struct {
-		Data bool `json:"data"`
-	}
-	if err := json.Unmarshal(r.Body(), &acknowledgement); err != nil || !acknowledgement.Data {
-		return fmt.Errorf("traffic report did not contain a successful V2board acknowledgement")
-	}
 	return nil
 }
 

@@ -60,17 +60,6 @@ func (h *Hysteria2) DelUsers(users []panel.UserInfo, tag string, _ *panel.NodeIn
 	return nil
 }
 
-func (h *Hysteria2) CollectUserTraffic(tag string, persist func([]panel.UserTraffic) error) ([]panel.UserTraffic, error) {
-	h.Auth.mutex.RLock()
-	defer h.Auth.mutex.RUnlock()
-	if node, ok := h.Hy2nodes[tag]; ok {
-		if v, ok := node.TrafficLogger.(*HookServer).Counter.Load(tag); ok {
-			return v.(*counter.TrafficCounter).Collect(func(key string) int { return h.Auth.usersMap[key] }, persist)
-		}
-	}
-	return nil, nil
-}
-
 func (h *Hysteria2) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	trafficSlice := make([]panel.UserTraffic, 0)
 	h.Auth.mutex.RLock()

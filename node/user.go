@@ -8,25 +8,18 @@ import (
 )
 
 func (c *Controller) reportUserTrafficTask() (err error) {
-	c.trafficMu.Lock()
-	defer c.trafficMu.Unlock()
-	if c.closed {
-		return nil
-	}
-	userTraffic, collectErr := c.server.CollectUserTraffic(c.tag, c.trafficQueue.Add)
-	if collectErr != nil {
-		log.WithField("tag", c.tag).WithError(collectErr).Error("Save traffic failed; counters retained for retry")
-	}
-	// Retry stored reports even when no users have generated new traffic.
-	err = c.trafficQueue.Report(c.Options.ReportMinTraffic*1024, func(batch []panel.UserTraffic) error {
-		if err := c.apiClient.ReportUserTraffic(batch); err != nil {
-			return err
+	userTraffic, _ := c.server.GetUserTrafficSlice(c.tag, true)
+	if len(userTraffic) > 0 {
+		err = c.apiClient.ReportUserTraffic(userTraffic)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"tag": c.tag,
+				"err": err,
+			}).Info("Report user traffic failed")
+		} else {
+			log.WithField("tag", c.tag).Infof("Report %d users traffic", len(userTraffic))
+			log.WithField("tag", c.tag).Debugf("User traffic: %+v", userTraffic)
 		}
-		log.WithField("tag", c.tag).Infof("Report %d users traffic", len(batch))
-		return nil
-	})
-	if err != nil {
-		log.WithField("tag", c.tag).WithError(err).Warn("Report user traffic failed; saved traffic retained for retry")
 	}
 
 	if onlineDevice, err := c.limiter.GetOnlineDevice(); err != nil {

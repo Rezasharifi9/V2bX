@@ -50,11 +50,6 @@ func (c *Controller) startTasks(node *panel.NodeInfo) {
 }
 
 func (c *Controller) nodeInfoMonitor() (err error) {
-	c.trafficMu.Lock()
-	defer c.trafficMu.Unlock()
-	if c.closed {
-		return nil
-	}
 	// get node info
 	newN, err := c.apiClient.GetNodeInfo()
 	if err != nil {
@@ -83,10 +78,6 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		return nil
 	}
 	if newN != nil {
-		if _, err := c.server.CollectUserTraffic(c.tag, c.trafficQueue.Add); err != nil {
-			log.WithField("tag", c.tag).WithError(err).Error("Save traffic failed; node reload postponed")
-			return nil
-		}
 		c.info = newN
 		// nodeInfo changed
 		if newU != nil {
@@ -185,12 +176,6 @@ func (c *Controller) nodeInfoMonitor() (err error) {
 		return nil
 	}
 	deleted, added := compareUserList(c.userList, newU)
-	if len(deleted) > 0 || len(added) > 0 {
-		if _, err := c.server.CollectUserTraffic(c.tag, c.trafficQueue.Add); err != nil {
-			log.WithField("tag", c.tag).WithError(err).Error("Save traffic failed; user update postponed")
-			return nil
-		}
-	}
 	if len(deleted) > 0 {
 		// have deleted users
 		err = c.server.DelUsers(deleted, c.tag, c.info)

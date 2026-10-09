@@ -18,7 +18,6 @@ type Core interface {
 	DelNode(tag string) error
 	AddUsers(p *AddUsersParams) (added int, err error)
 	GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error)
-	CollectUserTraffic(tag string, persist func([]panel.UserTraffic) error) ([]panel.UserTraffic, error)
 	DelUsers(users []panel.UserInfo, tag string, info *panel.NodeInfo) error
 	Protocols() []string
 	Type() string

@@ -134,15 +134,6 @@ func (b *Sing) GetUserTraffic(tag, uuid string, reset bool) (up int64, down int6
 	return 0, 0
 }
 
-func (b *Sing) CollectUserTraffic(tag string, persist func([]panel.UserTraffic) error) ([]panel.UserTraffic, error) {
-	b.users.mapLock.RLock()
-	defer b.users.mapLock.RUnlock()
-	if v, ok := b.hookServer.counter.Load(tag); ok {
-		return v.(*counter.TrafficCounter).Collect(func(key string) int { return b.users.uidMap[key] }, persist)
-	}
-	return nil, nil
-}
-
 func (b *Sing) GetUserTrafficSlice(tag string, reset bool) ([]panel.UserTraffic, error) {
 	trafficSlice := make([]panel.UserTraffic, 0)
 	hook := b.hookServer

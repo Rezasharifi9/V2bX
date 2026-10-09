@@ -1,28 +1,5 @@
 # V2bX
 
-## Rezasharifi9 fork: persistent traffic reporting
-
-This fork stores unreported user traffic on disk before subtracting it from the
-core's counters. If V2board is unavailable, queued usage is retried on the next
-push interval, including after a service restart. Xray, Sing and Hysteria2 are
-supported. See [traffic reporting details](docs/traffic-reporting.md).
-
-Install or update from **this repository's releases** (Linux/systemd, as root):
-
-```bash
-wget -O install.sh https://raw.githubusercontent.com/Rezasharifi9/V2bX/dev_new/install.sh && bash install.sh
-```
-
-All installation, configuration-generator and management-script downloads use
-this fork. Release archives must exist in this repository; the installer never
-falls back to upstream binaries. Existing node configuration and the traffic
-queue are preserved during updates.
-
-The management/configuration scripts in `scripts/` were adapted from
-`wyx2685/V2bX-script` under MPL-2.0. The Go module's original name remains for
-source compatibility. External Go dependencies and geodata have their own
-upstream sources; this fork does not mirror those projects.
-
 [![](https://img.shields.io/badge/TgChat-UnOfficialV2Board%E4%BA%A4%E6%B5%81%E7%BE%A4-green)](https://t.me/unofficialV2board)
 [![](https://img.shields.io/badge/TgChat-YuzukiProjects%E4%BA%A4%E6%B5%81%E7%BE%A4-blue)](https://t.me/YuzukiProjects)
 
@@ -70,7 +47,7 @@ A V2board node server based on multi core, modified from XrayR.
 ### 一键安装
 
 ```
-wget -O install.sh https://raw.githubusercontent.com/Rezasharifi9/V2bX/dev_new/install.sh && bash install.sh
+wget -N https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh && bash install.sh
 ```
 
 ### 手动安装
