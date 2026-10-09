@@ -1,11 +1,16 @@
 name: Build and Release
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
     branches:
       - master
       - dev_new
+    tags:
+      - 'v*'
     paths:
       - "**/*.go"
       - "go.mod"
@@ -115,11 +120,11 @@ jobs:
         run: |
           go mod download
       - name: Get release version
-        if: ${{ github.event_name == 'release' }}
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         run: |
           echo "version=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
       - name: Get other version
-        if: ${{ github.event_name != 'release' }}
+        if: github.event_name != 'release' && !startsWith(github.ref, 'refs/tags/')
         run: |
           echo "version=${{ github.sha }}" >> $GITHUB_ENV
       - name: Build V2bX
@@ -160,6 +165,7 @@ jobs:
           popd || exit 1
           FILE=./V2bX-$ASSET_NAME.zip
           DGST=$FILE.dgst
+          sha256sum "$FILE" | sed 's| ./| |' > "$FILE.sha256"
           for METHOD in {"md5","sha1","sha256","sha512"}
           do
             openssl dgst -$METHOD $FILE | sed 's/([^)]*)//g' >>$DGST
@@ -175,7 +181,7 @@ jobs:
             ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}/*
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}.zip*

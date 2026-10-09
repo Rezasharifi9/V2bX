@@ -3,9 +3,13 @@ package node
 import (
 	"errors"
 	"fmt"
+	"math"
+	"strings"
+	"sync"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/common/task"
+	"github.com/InazumaV/V2bX/common/trafficqueue"
 	"github.com/InazumaV/V2bX/conf"
 	vCore "github.com/InazumaV/V2bX/core"
 	"github.com/InazumaV/V2bX/limiter"
@@ -13,6 +17,9 @@ import (
 )
 
 type Controller struct {
+	trafficMu                 sync.Mutex
+	trafficQueue              *trafficqueue.Queue
+	closed                    bool
 	server                    vCore.Core
 	apiClient                 *panel.Client
 	tag                       string
@@ -43,6 +50,14 @@ func NewController(server vCore.Core, api *panel.Client, config *conf.Options) *
 func (c *Controller) Start() error {
 	// First fetch Node Info
 	var err error
+	if c.Options.ReportMinTraffic < 0 || c.Options.ReportMinTraffic > math.MaxInt64/1024 {
+		return errors.New("ReportMinTraffic must be a non-negative KiB value within int64 range")
+	}
+	identity := fmt.Sprintf("%s\n%s\n%d", strings.TrimRight(c.apiClient.APIHost, "/"), c.apiClient.NodeType, c.apiClient.NodeId)
+	c.trafficQueue, err = trafficqueue.Open(c.Options.TrafficStorePath, identity)
+	if err != nil {
+		return fmt.Errorf("open durable traffic queue: %w", err)
+	}
 	node, err := c.apiClient.GetNodeInfo()
 	if err != nil {
 		return fmt.Errorf("get node info error: %s", err)
@@ -99,6 +114,9 @@ func (c *Controller) Start() error {
 
 // Close implement the Close() function of the service interface
 func (c *Controller) Close() error {
+	c.trafficMu.Lock()
+	defer c.trafficMu.Unlock()
+	c.closed = true
 	limiter.DeleteLimiter(c.tag)
 	if c.nodeInfoMonitorPeriodic != nil {
 		c.nodeInfoMonitorPeriodic.Close()
@@ -114,6 +132,13 @@ func (c *Controller) Close() error {
 	}
 	if c.onlineIpReportPeriodic != nil {
 		c.onlineIpReportPeriodic.Close()
+	}
+	// Save the final counters before removing the node. Failed panel reports
+	// are already on disk and do not need network access during shutdown.
+	if c.trafficQueue != nil {
+		if _, err := c.server.CollectUserTraffic(c.tag, c.trafficQueue.Add); err != nil {
+			return fmt.Errorf("save traffic on shutdown: %w", err)
+		}
 	}
 	err := c.server.DelNode(c.tag)
 	if err != nil {
