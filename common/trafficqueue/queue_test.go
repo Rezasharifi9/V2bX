@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync/atomic"
 	"testing"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -23,14 +24,15 @@ func mustOpen(t *testing.T, dir, identity string) *Queue {
 }
 
 func TestPanelOutageRestartAndRecovery(t *testing.T) {
-	status, calls := http.StatusServiceUnavailable, 0
+	var status, calls atomic.Int64
+	status.Store(http.StatusServiceUnavailable)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/server/UniProxy/push" || r.Method != "POST" {
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
-		calls++
+		calls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
+		w.WriteHeader(int(status.Load()))
 		_, _ = w.Write([]byte(`{"data":true}`))
 	}))
 	defer server.Close()
@@ -54,7 +56,7 @@ func TestPanelOutageRestartAndRecovery(t *testing.T) {
 	if err := q.Add([]panel.UserTraffic{{UID: 7, Upload: 10, Download: 20}}); err != nil {
 		t.Fatal(err)
 	}
-	status = http.StatusOK
+	status.Store(http.StatusOK)
 	if err := q.Report(0, func(batch []panel.UserTraffic) error {
 		want := []panel.UserTraffic{{UID: 7, Upload: 110, Download: 220}}
 		if !reflect.DeepEqual(batch, want) {
@@ -71,8 +73,8 @@ func TestPanelOutageRestartAndRecovery(t *testing.T) {
 	if err := q.Report(0, client.ReportUserTraffic); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 {
-		t.Fatalf("expected failure and recovery only, got %d requests", calls)
+	if calls.Load() != 2 {
+		t.Fatalf("expected failure and recovery only, got %d requests", calls.Load())
 	}
 }
 

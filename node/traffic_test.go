@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/InazumaV/V2bX/api/panel"
@@ -36,22 +37,23 @@ func (f *trafficTestCore) CollectUserTraffic(_ string, persist func([]panel.User
 }
 
 func TestControllerRetriesSavedTrafficWithoutNewUsageAfterRestart(t *testing.T) {
-	status, requests := http.StatusServiceUnavailable, 0
+	var status, requests atomic.Int64
+	status.Store(http.StatusServiceUnavailable)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
+		request := requests.Add(1)
 		var payload map[int][]int64
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			t.Error(err)
 		}
 		want := int64(100)
-		if requests == 2 {
+		if request == 2 {
 			want = 125
 		}
 		if len(payload[7]) != 2 || payload[7][0] != want {
 			t.Errorf("wrong reported usage: %+v", payload)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
+		w.WriteHeader(int(status.Load()))
 		_, _ = w.Write([]byte(`{"data":true}`))
 	}))
 	defer server.Close()
@@ -74,7 +76,7 @@ func TestControllerRetriesSavedTrafficWithoutNewUsageAfterRestart(t *testing.T) 
 	if err := c.reportUserTrafficTask(); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 1 || fake.counts.GetUpCount("uuid") != 0 {
+	if requests.Load() != 1 || fake.counts.GetUpCount("uuid") != 0 {
 		t.Fatal("failed report not stored")
 	}
 	// New usage after the last push must also survive graceful shutdown.
@@ -86,11 +88,11 @@ func TestControllerRetriesSavedTrafficWithoutNewUsageAfterRestart(t *testing.T) 
 		t.Fatal("node was not closed")
 	}
 	c, _ = makeController()
-	status = http.StatusOK
+	status.Store(http.StatusOK)
 	if err := c.reportUserTrafficTask(); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 2 {
+	if requests.Load() != 2 {
 		t.Fatal("stored traffic not retried without new traffic")
 	}
 	q, err := trafficqueue.Open(dir, "test-node")
